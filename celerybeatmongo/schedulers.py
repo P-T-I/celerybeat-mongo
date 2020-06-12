@@ -107,30 +107,30 @@ class MongoScheduler(Scheduler):
 
     Model = PeriodicTask
 
-    def __init__(self, *args, **kwargs):
-
-        Scheduler.__init__(self, *args, **kwargs)
-
-        if hasattr(self.app.conf, "mongodb_scheduler_db"):
-            db = self.app.conf.get("mongodb_scheduler_db")
-        elif hasattr(self.app.conf, "CELERY_MONGODB_SCHEDULER_DB"):
-            db = self.app.conf.CELERY_MONGODB_SCHEDULER_DB
+    def __init__(self, app, *args, **kwargs):
+        if hasattr(app.conf, "mongodb_scheduler_db"):
+            db = app.conf.get("mongodb_scheduler_db")
+        elif hasattr(app.conf, "CELERY_MONGODB_SCHEDULER_DB"):
+            db = app.conf.CELERY_MONGODB_SCHEDULER_DB
         else:
             db = "celery"
+        logger.debug("mongodb_scheduler_db: %s", db)
 
-        if hasattr(self.app.conf, "mongodb_scheduler_connection_alias"):
-            alias = self.app.conf.get('mongodb_scheduler_connection_alias')
-        elif hasattr(self.app.conf, "CELERY_MONGODB_SCHEDULER_CONNECTION_ALIAS"):
-            alias = self.app.conf.CELERY_MONGODB_SCHEDULER_CONNECTION_ALIAS
+        if hasattr(app.conf, "mongodb_scheduler_connection_alias"):
+            alias = app.conf.get('mongodb_scheduler_connection_alias')
+        elif hasattr(app.conf, "CELERY_MONGODB_SCHEDULER_CONNECTION_ALIAS"):
+            alias = app.conf.CELERY_MONGODB_SCHEDULER_CONNECTION_ALIAS
         else:
             alias = "default"
+        logger.debug("mongodb_scheduler_connection_alias: %s", alias)
 
-        if hasattr(self.app.conf, "mongodb_scheduler_url"):
-            host = self.app.conf.get('mongodb_scheduler_url')
-        elif hasattr(self.app.conf, "CELERY_MONGODB_SCHEDULER_URL"):
-            host = self.app.conf.CELERY_MONGODB_SCHEDULER_URL
+        if hasattr(app.conf, "mongodb_scheduler_url"):
+            host = app.conf.get('mongodb_scheduler_url')
+        elif hasattr(app.conf, "CELERY_MONGODB_SCHEDULER_URL"):
+            host = app.conf.CELERY_MONGODB_SCHEDULER_URL
         else:
             host = None
+        logger.debug("mongodb_scheduler_url: %s", host)
 
         self._mongo = mongoengine.connect(db, host=host, alias=alias)
 
@@ -140,9 +140,9 @@ class MongoScheduler(Scheduler):
         else:
             logger.info("backend scheduler using %s/%s:%s",
                         "mongodb://localhost", db, self.Model._get_collection().name)
-
         self._schedule = {}
         self._last_updated = None
+        Scheduler.__init__(self, app, *args, **kwargs)
         self.max_interval = (kwargs.get('max_interval')
                              or self.app.conf.CELERYBEAT_MAX_LOOP_INTERVAL or 5)
 
@@ -171,5 +171,6 @@ class MongoScheduler(Scheduler):
         return self._schedule
 
     def sync(self):
+        logger.debug('Writing entries...')
         for entry in self._schedule.values():
             entry.save()
